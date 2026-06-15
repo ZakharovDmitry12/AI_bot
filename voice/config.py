@@ -56,7 +56,7 @@ def load_voice_settings() -> VoiceSettings:
         wake_word=os.getenv("VOICE_WAKE_WORD", "джарвис").strip().lower(),
         wake_word_aliases=_get_csv_env(
             "VOICE_WAKE_WORD_ALIASES",
-            default=["джарвис", "джервис", "джар виз"],
+            default=["джарвис", "джарвиз", "джервис", "джар виз"],
         ),
         wake_model_path=Path(
             os.getenv(

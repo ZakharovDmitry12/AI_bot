@@ -84,6 +84,15 @@ Piper.
 .\.venv\Scripts\python.exe -m voice.wake_test
 ```
 
+Если кодовое слово не срабатывает, включи диагностику:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.wake_test --debug
+```
+
+В логах смотри на `rms/peak` и `text`: если `rms` около нуля, микрофон не дает
+сигнал; если `text` похож на другое слово, добавь его в `VOICE_WAKE_WORD_ALIASES`.
+
 Проверь автоостановку по тишине:
 
 ```powershell
