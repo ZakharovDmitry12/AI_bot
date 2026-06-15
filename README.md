@@ -85,6 +85,8 @@ OPENROUTER_MODEL=openai/gpt-4o-mini
 Подробные диагностические логи голосовых команд пишутся в `logs/voice.log`.
 Там видны выбранные устройства, VAD-пороги, STT language/text, Piper-синтез и
 факт проигрывания WAV через output-устройство.
+В консоли `Wake check` показывает `rms/peak/threshold`: если `rms` ниже
+`threshold`, локальный VAD считает это тишиной.
 
 Диагностика старого локального Vosk wake-detector оставлена отдельно:
 

@@ -35,7 +35,9 @@ class VoiceSettings:
     max_record_seconds: float
     pre_roll_seconds: float
     min_speech_rms: float
+    max_silence_threshold: float
     noise_multiplier: float
+    audio_warmup_seconds: float
     vad_block_seconds: float
     noise_calibration_seconds: float
     log_level: str
@@ -107,12 +109,14 @@ def load_voice_settings() -> VoiceSettings:
         wake_max_record_seconds=_get_float_env("VOICE_WAKE_MAX_RECORD_SECONDS", 4.0),
         wake_stt_interval_seconds=_get_float_env("VOICE_WAKE_STT_INTERVAL_SECONDS", 1.0),
         wake_window_seconds=_get_float_env("VOICE_WAKE_WINDOW_SECONDS", 3.0),
-        wake_min_voiced_seconds=_get_float_env("VOICE_WAKE_MIN_VOICED_SECONDS", 0.2),
+        wake_min_voiced_seconds=_get_float_env("VOICE_WAKE_MIN_VOICED_SECONDS", 0.1),
         silence_seconds=_get_float_env("VOICE_SILENCE_SECONDS", 2.0),
         max_record_seconds=_get_float_env("VOICE_MAX_RECORD_SECONDS", 20.0),
         pre_roll_seconds=_get_float_env("VOICE_PRE_ROLL_SECONDS", 0.3),
         min_speech_rms=_get_float_env("VOICE_MIN_SPEECH_RMS", 0.003),
+        max_silence_threshold=_get_float_env("VOICE_MAX_SILENCE_THRESHOLD", 0.02),
         noise_multiplier=_get_float_env("VOICE_NOISE_MULTIPLIER", 3.0),
+        audio_warmup_seconds=_get_float_env("VOICE_AUDIO_WARMUP_SECONDS", 0.3),
         vad_block_seconds=_get_float_env("VOICE_VAD_BLOCK_SECONDS", 0.1),
         noise_calibration_seconds=_get_float_env("VOICE_NOISE_CALIBRATION_SECONDS", 0.4),
         log_level=os.getenv("VOICE_LOG_LEVEL", "INFO").strip().upper() or "INFO",

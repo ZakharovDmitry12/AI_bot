@@ -7,6 +7,7 @@ from collections import deque
 from contextlib import suppress
 from dataclasses import dataclass
 import logging
+import math
 from pathlib import Path
 import tempfile
 import threading
@@ -21,6 +22,7 @@ from voice.audio_devices import describe_device
 from voice.audio_devices import require_input_device
 from voice.config import VoiceSettings
 from voice.recorder import AudioInputError
+from voice.recorder import calculate_silence_threshold
 from voice.stt import OpenRouterSTT
 from voice.wake import match_wake_word
 
@@ -36,6 +38,10 @@ class CloudWakeAttempt:
     speech_detected: bool
     duration_seconds: float
     matched_alias: str | None
+    max_rms: float = 0.0
+    max_peak: float = 0.0
+    silence_threshold: float = 0.0
+    voiced_seconds: float = 0.0
 
 
 @dataclass(frozen=True)
@@ -74,9 +80,10 @@ class CloudWakeWordDetector:
         window_blocks = max(1, int(self._settings.wake_window_seconds / self._settings.vad_block_seconds))
         interval_seconds = self._settings.wake_stt_interval_seconds
         min_voiced_seconds = self._settings.wake_min_voiced_seconds
+        warmup_blocks = max(0, math.ceil(self._settings.audio_warmup_seconds / self._settings.vad_block_seconds))
         calibration_blocks = max(
             1,
-            int(self._settings.noise_calibration_seconds / self._settings.vad_block_seconds),
+            math.ceil(self._settings.noise_calibration_seconds / self._settings.vad_block_seconds),
         )
         recent_blocks: deque[_WakeAudioBlock] = deque(maxlen=window_blocks)
         pending_attempt: asyncio.Task[CloudWakeAttempt] | None = None
@@ -85,13 +92,16 @@ class CloudWakeWordDetector:
         _check_input_settings(device_index, sample_rate)
         logger.info(
             "cloud_wake start device=%s sample_rate=%s block_frames=%s interval=%.2f "
-            "window=%.2f min_voiced=%.2f",
+            "window=%.2f min_voiced=%.2f warmup=%.2f min_rms=%.6f max_threshold=%.6f",
             describe_device(device_index),
             sample_rate,
             block_frames,
             interval_seconds,
             self._settings.wake_window_seconds,
             min_voiced_seconds,
+            self._settings.audio_warmup_seconds,
+            self._settings.min_speech_rms,
+            self._settings.max_silence_threshold,
         )
 
         try:
@@ -104,6 +114,12 @@ class CloudWakeWordDetector:
             ) as stream:
                 calibration_audio = []
 
+                for _ in range(warmup_blocks):
+                    if stop_event.is_set():
+                        return None
+
+                    _read_block(stream, block_frames)
+
                 for _ in range(calibration_blocks):
                     if stop_event.is_set():
                         return None
@@ -111,15 +127,12 @@ class CloudWakeWordDetector:
                     calibration_audio.append(_read_block(stream, block_frames))
 
                 noise_values = [_rms(block) for block in calibration_audio]
-                noise_floor = float(np.median(noise_values)) if noise_values else 0.0
-                silence_threshold = max(
-                    self._settings.min_speech_rms,
-                    noise_floor * self._settings.noise_multiplier,
-                )
+                noise_floor, silence_threshold = calculate_silence_threshold(noise_values, self._settings)
                 logger.info(
-                    "cloud_wake calibrated noise_floor=%.6f silence_threshold=%.6f",
+                    "cloud_wake calibrated noise_floor=%.6f silence_threshold=%.6f calibration_rms=%s",
                     noise_floor,
                     silence_threshold,
+                    ",".join(f"{value:.6f}" for value in noise_values),
                 )
 
                 for block in calibration_audio:
@@ -150,18 +163,31 @@ class CloudWakeWordDetector:
                             )
 
                             if attempt_audio is None:
+                                stats = _window_stats(list(recent_blocks), sample_rate)
+                                logger.info(
+                                    "cloud_wake no speech window duration=%.2f voiced=%.2f max_rms=%.6f max_peak=%.6f threshold=%.6f",
+                                    stats[0],
+                                    stats[3],
+                                    stats[1],
+                                    stats[2],
+                                    silence_threshold,
+                                )
                                 if attempt_callback:
                                     attempt_callback(
                                         CloudWakeAttempt(
                                             text="",
                                             speech_detected=False,
-                                            duration_seconds=0.0,
+                                            duration_seconds=stats[0],
                                             matched_alias=None,
+                                            max_rms=stats[1],
+                                            max_peak=stats[2],
+                                            silence_threshold=silence_threshold,
+                                            voiced_seconds=stats[3],
                                         )
                                     )
                             else:
                                 pending_attempt = asyncio.create_task(
-                                    self._transcribe_attempt(attempt_audio),
+                                    self._transcribe_attempt(attempt_audio, silence_threshold),
                                     name="cloud-wake-stt-attempt",
                                 )
 
@@ -185,7 +211,7 @@ class CloudWakeWordDetector:
 
         return None
 
-    async def _transcribe_attempt(self, audio: np.ndarray) -> CloudWakeAttempt:
+    async def _transcribe_attempt(self, audio: np.ndarray, silence_threshold: float) -> CloudWakeAttempt:
         duration_seconds = len(audio) / self._settings.sample_rate if len(audio) else 0.0
         rms = _rms(audio)
         peak = _peak(audio)
@@ -216,6 +242,10 @@ class CloudWakeWordDetector:
             speech_detected=True,
             duration_seconds=duration_seconds,
             matched_alias=match,
+            max_rms=rms,
+            max_peak=peak,
+            silence_threshold=silence_threshold,
+            voiced_seconds=duration_seconds,
         )
 
 
@@ -305,6 +335,20 @@ def _extract_speech_window(
         max((block.peak for block in blocks[start_index:end_index]), default=0.0),
     )
     return audio
+
+
+def _window_stats(blocks: list[_WakeAudioBlock], sample_rate: int) -> tuple[float, float, float, float]:
+    if not blocks:
+        return 0.0, 0.0, 0.0, 0.0
+
+    frames = sum(len(block.audio) for block in blocks)
+    voiced_frames = sum(len(block.audio) for block in blocks if block.is_speech)
+    return (
+        frames / sample_rate,
+        max((block.rms for block in blocks), default=0.0),
+        max((block.peak for block in blocks), default=0.0),
+        voiced_frames / sample_rate,
+    )
 
 
 def _rms(block: np.ndarray) -> float:

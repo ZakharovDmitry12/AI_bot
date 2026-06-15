@@ -91,6 +91,7 @@ def record_until_silence(
     pre_roll_blocks = max(1, math.ceil(settings.pre_roll_seconds / settings.vad_block_seconds))
     max_blocks = max(1, math.ceil(settings.max_record_seconds / settings.vad_block_seconds))
     silence_limit_blocks = max(1, math.ceil(settings.silence_seconds / settings.vad_block_seconds))
+    warmup_blocks = max(0, math.ceil(settings.audio_warmup_seconds / settings.vad_block_seconds))
     calibration_blocks = max(1, math.ceil(settings.noise_calibration_seconds / settings.vad_block_seconds))
 
     recorded_blocks: list[np.ndarray] = []
@@ -107,14 +108,16 @@ def record_until_silence(
     logger.info(
         "record_until_silence start path=%s sample_rate=%s block_frames=%s "
         "silence_seconds=%.2f max_record_seconds=%.2f min_speech_rms=%.6f "
-        "noise_multiplier=%.2f device=%s",
+        "max_silence_threshold=%.6f noise_multiplier=%.2f warmup_seconds=%.2f device=%s",
         output_path,
         settings.sample_rate,
         block_frames,
         settings.silence_seconds,
         settings.max_record_seconds,
         settings.min_speech_rms,
+        settings.max_silence_threshold,
         settings.noise_multiplier,
+        settings.audio_warmup_seconds,
         describe_device(device_index),
     )
 
@@ -126,6 +129,12 @@ def record_until_silence(
             device=device_index,
             blocksize=block_frames,
         ) as stream:
+            for _ in range(warmup_blocks):
+                if stop_event.is_set():
+                    break
+
+                _read_block(stream, block_frames)
+
             for _ in range(calibration_blocks):
                 if stop_event.is_set():
                     break
@@ -137,8 +146,7 @@ def record_until_silence(
                 observed_peak_values.append(_peak(block))
                 calibration_audio_blocks.append(block)
 
-            noise_floor = float(np.median(noise_rms_values)) if noise_rms_values else 0.0
-            silence_threshold = max(settings.min_speech_rms, noise_floor * settings.noise_multiplier)
+            noise_floor, silence_threshold = calculate_silence_threshold(noise_rms_values, settings)
             speech_detected = False
             silent_blocks = 0
 
@@ -231,6 +239,27 @@ def _rms(block: np.ndarray) -> float:
         return 0.0
 
     return float(np.sqrt(np.mean(np.square(audio))))
+
+
+def calculate_silence_threshold(noise_rms_values: list[float], settings: VoiceSettings) -> tuple[float, float]:
+    """Returns a robust noise floor and capped VAD threshold."""
+    if noise_rms_values:
+        noise_floor = float(np.percentile(noise_rms_values, 25))
+    else:
+        noise_floor = 0.0
+
+    uncapped_threshold = max(settings.min_speech_rms, noise_floor * settings.noise_multiplier)
+    silence_threshold = min(uncapped_threshold, settings.max_silence_threshold)
+
+    if silence_threshold < uncapped_threshold:
+        logger.warning(
+            "VAD threshold capped noise_floor=%.6f uncapped=%.6f capped=%.6f",
+            noise_floor,
+            uncapped_threshold,
+            silence_threshold,
+        )
+
+    return noise_floor, silence_threshold
 
 
 def _peak(block: np.ndarray) -> float:

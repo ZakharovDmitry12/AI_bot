@@ -135,12 +135,21 @@ def _start_exit_monitor() -> threading.Event:
 
 def _print_wake_attempt(attempt: CloudWakeAttempt) -> None:
     if not attempt.speech_detected:
-        print(f"Wake check: no speech ({attempt.duration_seconds:.1f}s).")
+        print(
+            "Wake check: no speech "
+            f"({attempt.duration_seconds:.1f}s, rms={attempt.max_rms:.4f}, "
+            f"peak={attempt.max_peak:.4f}, threshold={attempt.silence_threshold:.4f}, "
+            f"voiced={attempt.voiced_seconds:.1f}s)."
+        )
         return
 
     match = attempt.matched_alias or "-"
     text = attempt.text or "<empty>"
-    print(f"Wake check: text={text!r}, match={match}")
+    print(
+        f"Wake check: text={text!r}, match={match}, "
+        f"rms={attempt.max_rms:.4f}, peak={attempt.max_peak:.4f}, "
+        f"threshold={attempt.silence_threshold:.4f}, voiced={attempt.voiced_seconds:.1f}s"
+    )
 
 
 if __name__ == "__main__":
