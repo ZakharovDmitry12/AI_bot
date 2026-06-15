@@ -118,7 +118,7 @@ Piper.
 .\.venv\Scripts\python.exe -m voice.voice_client
 ```
 
-После запуска скажи `Джарвис`, дождись `Listening...`, задай вопрос и замолчи.
+После запуска скажи `Jarvis`, дождись `Listening...`, задай вопрос и замолчи.
 Запись остановится после 2 секунд тишины или через 20 секунд максимум.
 
 Для голосового режима в `.env` нужны рабочий OpenRouter-ключ и пути к Piper:
@@ -127,8 +127,8 @@ Piper.
 OPENROUTER_API_KEY=...
 VOICE_INPUT_DEVICE=SoundJoy2
 VOICE_OUTPUT_DEVICE=SoundJoy2
-VOICE_WAKE_WORD=джарвис
-VOICE_WAKE_WORD_ALIASES=джарвис,джарвиз,джервис,джар вис,джар виз,жарвис,жарвиз,ярвис
+VOICE_WAKE_WORD=jarvis
+VOICE_WAKE_WORD_ALIASES=jarvis,jarviz,jarviss,jarvez,jervis,jerviz,jarves,jerves,jar vis,jar viz,jar viss,jar vizz,jar ves,jar vez,jar vice,jar vise,jer vis,jer viz,jer viss,jer vizz,j arvis,j ar viz,джарвис,джарвиз,джервис,джар вис,джар виз,жарвис,жарвиз,ярвис
 VOICE_LOG_LEVEL=INFO
 PIPER_EXE=C:\path\to\piper.exe
 PIPER_MODEL=C:\path\to\ru_RU-irina-medium.onnx
