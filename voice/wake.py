@@ -100,7 +100,7 @@ class WakeWordDetector:
                 is_final = False
                 result = _parse_result(recognizer.PartialResult(), key="partial")
 
-                match = match_wake_word(result, self._aliases)
+            match = match_wake_word(result, self._aliases)
 
             if debug_callback:
                 debug_callback(
