@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import argparse
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -23,6 +24,7 @@ class PiperTTS:
         """Writes synthesized speech to a WAV file."""
         piper_exe = self._resolve_piper_exe()
         model_path = self._require_path(self._settings.piper_model, "PIPER_MODEL")
+        speech_text = markdown_to_speech_text(text)
 
         if self._settings.piper_config:
             self._require_path(self._settings.piper_config, "PIPER_CONFIG")
@@ -35,7 +37,7 @@ class PiperTTS:
 
             result = subprocess.run(
                 [piper_exe, "--model", str(model_path), output_flag, str(output_path)],
-                input=text,
+                input=speech_text,
                 text=True,
                 encoding="utf-8",
                 capture_output=True,
@@ -74,6 +76,23 @@ class PiperTTS:
             raise RuntimeError(f"{env_name} does not exist: {path}")
 
         return path
+
+
+def markdown_to_speech_text(text: str) -> str:
+    """Converts common Markdown formatting into text that TTS should read naturally."""
+    speech = text
+    speech = re.sub(r"!\[([^\]]*)\]\([^)]+\)", r"\1", speech)
+    speech = re.sub(r"\[([^\]]+)\]\([^)]+\)", r"\1", speech)
+    speech = re.sub(r"```[a-zA-Z0-9_-]*\s*([\s\S]*?)```", r"\1", speech)
+    speech = re.sub(r"`([^`]*)`", r"\1", speech)
+    speech = re.sub(r"^#{1,6}\s*", "", speech, flags=re.MULTILINE)
+    speech = re.sub(r"^\s*>\s?", "", speech, flags=re.MULTILINE)
+    speech = re.sub(r"^\s*[-*+]\s+", "", speech, flags=re.MULTILINE)
+    speech = re.sub(r"^\s*\d+[.)]\s+", "", speech, flags=re.MULTILINE)
+    speech = re.sub(r"[*_~]{1,3}([^*_~]+)[*_~]{1,3}", r"\1", speech)
+    speech = re.sub(r"[*_~#>|]+", "", speech)
+    speech = re.sub(r"\s+", " ", speech)
+    return speech.strip()
 
 
 def main() -> None:

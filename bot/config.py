@@ -59,11 +59,11 @@ def load_settings(require_bot_token: bool = True) -> Settings:
         llm_base_url=os.getenv("OPENROUTER_BASE_URL")
         or os.getenv("OPENAI_BASE_URL")
         or "https://openrouter.ai/api/v1",
-        # Модель можно поменять в .env. V3.1 выбрана как более подходящая для tools,
-        # но старый OPENAI_MODEL тоже поддержан для совместимости.
+        # Модель можно поменять в .env. Нужна обычная chat-модель с поддержкой tools;
+        # старый OPENAI_MODEL тоже поддержан для совместимости.
         llm_model=os.getenv("OPENROUTER_MODEL")
         or os.getenv("OPENAI_MODEL")
-        or "deepseek/deepseek-chat-v3.1",
+        or "openai/gpt-4o-mini",
         openrouter_site_url=os.getenv("OPENROUTER_SITE_URL"),
         openrouter_app_name=os.getenv("OPENROUTER_APP_NAME", "Telegram AI Bot"),
         max_dialog_messages=_get_int_env("MAX_DIALOG_MESSAGES", 10),
