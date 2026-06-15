@@ -10,6 +10,7 @@ import threading
 
 from bot.chat_service import ChatService
 from bot.config import load_settings
+from voice.audio_devices import describe_device
 from voice.audio_devices import require_input_device, require_output_device
 from voice.cloud_wake import CloudWakeAttempt
 from voice.cloud_wake import CloudWakeWordDetector
@@ -33,8 +34,8 @@ async def main() -> None:
     app_settings = load_settings(require_bot_token=False)
     voice_settings = load_voice_settings()
 
-    require_input_device(voice_settings.input_device)
-    require_output_device(voice_settings.output_device)
+    input_device_index = require_input_device(voice_settings.input_device)
+    output_device_index = require_output_device(voice_settings.output_device)
 
     chat_service = ChatService(app_settings)
     stt = OpenRouterSTT(app_settings, voice_settings)
@@ -43,6 +44,8 @@ async def main() -> None:
     stop_event = _start_exit_monitor()
 
     print("Voice assistant is ready.")
+    print(f"Input: {describe_device(input_device_index)}")
+    print(f"Output: {describe_device(output_device_index)}")
     print("Say the configured wake word to start. Type q and press Enter to quit.")
 
     while not stop_event.is_set():

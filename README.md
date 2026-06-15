@@ -66,6 +66,10 @@ Piper.
 .\.venv\Scripts\python.exe -m voice.devices
 ```
 
+В `VOICE_INPUT_DEVICE` и `VOICE_OUTPUT_DEVICE` можно указать часть имени или
+точный индекс из списка устройств. На Windows для Bluetooth-микрофона обычно
+лучше выбирать устройство с Host API `Windows WASAPI`.
+
 Потом проверь запись:
 
 ```powershell
