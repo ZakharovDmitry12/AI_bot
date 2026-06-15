@@ -4,3 +4,4 @@ __pycache__/
 *.py[cod]
 bot.err.log
 bot.out.log
+logs/

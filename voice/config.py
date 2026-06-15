@@ -35,6 +35,7 @@ class VoiceSettings:
     noise_multiplier: float
     vad_block_seconds: float
     noise_calibration_seconds: float
+    log_level: str
 
 
 def load_voice_settings() -> VoiceSettings:
@@ -86,6 +87,7 @@ def load_voice_settings() -> VoiceSettings:
         noise_multiplier=_get_float_env("VOICE_NOISE_MULTIPLIER", 3.0),
         vad_block_seconds=_get_float_env("VOICE_VAD_BLOCK_SECONDS", 0.1),
         noise_calibration_seconds=_get_float_env("VOICE_NOISE_CALIBRATION_SECONDS", 0.4),
+        log_level=os.getenv("VOICE_LOG_LEVEL", "INFO").strip().upper() or "INFO",
     )
 
 

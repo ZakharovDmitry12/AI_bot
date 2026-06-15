@@ -16,7 +16,10 @@ from voice.cloud_wake import CloudWakeAttempt
 from voice.cloud_wake import CloudWakeWordDetector
 from voice.config import VoiceSettings
 from voice.config import load_voice_settings
+from voice.logging_config import VOICE_LOG_PATH
+from voice.logging_config import configure_voice_logging
 from voice.player import play_wav
+from voice.recorder import AudioInputError
 from voice.recorder import record_until_silence
 from voice.stt import OpenRouterSTT
 from voice.tts import PiperTTS
@@ -26,16 +29,18 @@ logger = logging.getLogger(__name__)
 
 
 async def main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s %(levelname)s %(name)s: %(message)s",
-    )
-
     app_settings = load_settings(require_bot_token=False)
     voice_settings = load_voice_settings()
+    log_path = configure_voice_logging(voice_settings.log_level)
 
     input_device_index = require_input_device(voice_settings.input_device)
     output_device_index = require_output_device(voice_settings.output_device)
+    logger.info(
+        "Voice client starting input=%s output=%s sample_rate=%s",
+        describe_device(input_device_index),
+        describe_device(output_device_index),
+        voice_settings.sample_rate,
+    )
 
     chat_service = ChatService(app_settings)
     stt = OpenRouterSTT(app_settings, voice_settings)
@@ -46,6 +51,7 @@ async def main() -> None:
     print("Voice assistant is ready.")
     print(f"Input: {describe_device(input_device_index)}")
     print(f"Output: {describe_device(output_device_index)}")
+    print(f"Logs: {log_path}")
     print("Say the configured wake word to start. Type q and press Enter to quit.")
 
     while not stop_event.is_set():
@@ -139,5 +145,10 @@ def _print_wake_attempt(attempt: CloudWakeAttempt) -> None:
 if __name__ == "__main__":
     try:
         asyncio.run(main())
+    except AudioInputError as exc:
+        logger.exception("Voice client stopped because audio input failed.")
+        print(f"\nAudio input failed: {exc}")
+        print(f"Details: {VOICE_LOG_PATH}")
+        raise SystemExit(1)
     except KeyboardInterrupt:
         print("\nStopped.")

@@ -70,11 +70,19 @@ Piper.
 точный индекс из списка устройств. На Windows для Bluetooth-микрофона обычно
 лучше выбирать устройство с Host API `Windows WASAPI`.
 
+Если запись падает или микрофон молчит, проверь устройства и sample rate:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.audio_probe
+```
+
 Потом проверь запись:
 
 ```powershell
 .\.venv\Scripts\python.exe -m voice.record_test --seconds 3
 ```
+
+Подробные диагностические логи голосовых команд пишутся в `logs/voice.log`.
 
 Диагностика старого локального Vosk wake-detector оставлена отдельно:
 
@@ -121,6 +129,7 @@ VOICE_INPUT_DEVICE=SoundJoy2
 VOICE_OUTPUT_DEVICE=SoundJoy2
 VOICE_WAKE_WORD=джарвис
 VOICE_WAKE_WORD_ALIASES=джарвис,джарвиз,джервис,джар вис,джар виз,жарвис,жарвиз,ярвис
+VOICE_LOG_LEVEL=INFO
 PIPER_EXE=C:\path\to\piper.exe
 PIPER_MODEL=C:\path\to\ru_RU-irina-medium.onnx
 PIPER_CONFIG=C:\path\to\ru_RU-irina-medium.onnx.json
