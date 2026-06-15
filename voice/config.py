@@ -28,6 +28,9 @@ class VoiceSettings:
     wake_gain: float
     wake_silence_seconds: float
     wake_max_record_seconds: float
+    wake_stt_interval_seconds: float
+    wake_window_seconds: float
+    wake_min_voiced_seconds: float
     silence_seconds: float
     max_record_seconds: float
     pre_roll_seconds: float
@@ -102,6 +105,9 @@ def load_voice_settings() -> VoiceSettings:
         wake_gain=_get_float_env("VOICE_WAKE_GAIN", 12.0),
         wake_silence_seconds=_get_float_env("VOICE_WAKE_SILENCE_SECONDS", 0.8),
         wake_max_record_seconds=_get_float_env("VOICE_WAKE_MAX_RECORD_SECONDS", 4.0),
+        wake_stt_interval_seconds=_get_float_env("VOICE_WAKE_STT_INTERVAL_SECONDS", 1.0),
+        wake_window_seconds=_get_float_env("VOICE_WAKE_WINDOW_SECONDS", 3.0),
+        wake_min_voiced_seconds=_get_float_env("VOICE_WAKE_MIN_VOICED_SECONDS", 0.2),
         silence_seconds=_get_float_env("VOICE_SILENCE_SECONDS", 2.0),
         max_record_seconds=_get_float_env("VOICE_MAX_RECORD_SECONDS", 20.0),
         pre_roll_seconds=_get_float_env("VOICE_PRE_ROLL_SECONDS", 0.3),

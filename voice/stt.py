@@ -4,12 +4,16 @@ from __future__ import annotations
 
 import base64
 import json
+import logging
 from pathlib import Path
 
 import aiohttp
 
 from bot.config import Settings
 from voice.config import VoiceSettings
+
+
+logger = logging.getLogger(__name__)
 
 
 class OpenRouterSTT:
@@ -35,12 +39,14 @@ class OpenRouterSTT:
             try:
                 return await self._transcribe_with_model(audio_path, model_id)
             except Exception as exc:
+                logger.exception("OpenRouter STT failed model=%s path=%s", model_id, audio_path)
                 errors.append(f"{model_id}: {exc}")
 
         raise RuntimeError("OpenRouter STT failed. " + " | ".join(errors))
 
     async def _transcribe_with_model(self, audio_path: Path, model_id: str) -> str:
-        audio_data = base64.b64encode(audio_path.read_bytes()).decode("ascii")
+        audio_bytes = audio_path.read_bytes()
+        audio_data = base64.b64encode(audio_bytes).decode("ascii")
         audio_format = audio_path.suffix.lower().lstrip(".") or "wav"
         payload = {
             "model": model_id,
@@ -53,6 +59,15 @@ class OpenRouterSTT:
 
         if self._voice_settings.stt_language:
             payload["language"] = self._voice_settings.stt_language
+
+        logger.info(
+            "OpenRouter STT request model=%s language=%s format=%s bytes=%s path=%s",
+            model_id,
+            self._voice_settings.stt_language or "<auto>",
+            audio_format,
+            len(audio_bytes),
+            audio_path,
+        )
 
         headers = {
             "Authorization": f"Bearer {self._app_settings.llm_api_key}",
@@ -72,6 +87,13 @@ class OpenRouterSTT:
                 if response.status >= 400:
                     raise RuntimeError(f"HTTP {response.status}: {response_text}")
 
+                logger.info(
+                    "OpenRouter STT response model=%s status=%s body_chars=%s",
+                    model_id,
+                    response.status,
+                    len(response_text),
+                )
+
         try:
             result = json.loads(response_text)
         except json.JSONDecodeError as exc:
@@ -82,4 +104,6 @@ class OpenRouterSTT:
         if not isinstance(text, str):
             raise RuntimeError(f"Response does not contain text: {result}")
 
-        return text.strip()
+        text = text.strip()
+        logger.info("OpenRouter STT text model=%s language=%s text=%r", model_id, payload.get("language"), text)
+        return text

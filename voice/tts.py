@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 from pathlib import Path
 import re
 import shutil
@@ -11,7 +12,13 @@ import sys
 import tempfile
 
 from voice.config import VoiceSettings, load_voice_settings
+from voice.logging_config import VOICE_LOG_PATH
+from voice.logging_config import configure_voice_logging
+from voice.player import AudioOutputError
 from voice.player import play_wav
+
+
+logger = logging.getLogger(__name__)
 
 
 class PiperTTS:
@@ -30,6 +37,12 @@ class PiperTTS:
             self._require_path(self._settings.piper_config, "PIPER_CONFIG")
 
         output_path.parent.mkdir(parents=True, exist_ok=True)
+        logger.info(
+            "Piper synth start chars=%s speech_chars=%s output=%s",
+            len(text),
+            len(speech_text),
+            output_path,
+        )
 
         for output_flag in ("--output_file", "--output-file"):
             if output_path.exists():
@@ -45,9 +58,16 @@ class PiperTTS:
             )
 
             if result.returncode == 0 and output_path.exists() and output_path.stat().st_size > 0:
+                logger.info(
+                    "Piper synth done output=%s bytes=%s flag=%s",
+                    output_path,
+                    output_path.stat().st_size,
+                    output_flag,
+                )
                 return output_path
 
             last_error = (result.stderr or result.stdout or "").strip()
+            logger.warning("Piper synth failed flag=%s returncode=%s error=%s", output_flag, result.returncode, last_error)
 
         raise RuntimeError(f"Piper failed to synthesize speech: {last_error}")
 
@@ -110,11 +130,18 @@ def main() -> None:
         sys.exit(1)
 
     settings = load_voice_settings()
+    log_path = configure_voice_logging(settings.log_level)
+    print(f"Logs: {log_path}")
 
     with tempfile.TemporaryDirectory() as tmp_dir:
         output_path = Path(tmp_dir) / "tts.wav"
-        PiperTTS(settings).synthesize_to_file(text, output_path)
-        play_wav(output_path, settings)
+        try:
+            PiperTTS(settings).synthesize_to_file(text, output_path)
+            play_wav(output_path, settings)
+        except (AudioOutputError, RuntimeError) as exc:
+            print(f"TTS failed: {exc}")
+            print(f"Details: {VOICE_LOG_PATH}")
+            raise SystemExit(1)
 
 
 if __name__ == "__main__":

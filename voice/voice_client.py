@@ -18,6 +18,7 @@ from voice.config import VoiceSettings
 from voice.config import load_voice_settings
 from voice.logging_config import VOICE_LOG_PATH
 from voice.logging_config import configure_voice_logging
+from voice.player import AudioOutputError
 from voice.player import play_wav
 from voice.recorder import AudioInputError
 from voice.recorder import record_until_silence
@@ -145,9 +146,9 @@ def _print_wake_attempt(attempt: CloudWakeAttempt) -> None:
 if __name__ == "__main__":
     try:
         asyncio.run(main())
-    except AudioInputError as exc:
-        logger.exception("Voice client stopped because audio input failed.")
-        print(f"\nAudio input failed: {exc}")
+    except (AudioInputError, AudioOutputError) as exc:
+        logger.exception("Voice client stopped because voice I/O failed.")
+        print(f"\nVoice I/O failed: {exc}")
         print(f"Details: {VOICE_LOG_PATH}")
         raise SystemExit(1)
     except KeyboardInterrupt:
