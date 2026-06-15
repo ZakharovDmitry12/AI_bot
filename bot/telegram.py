@@ -11,24 +11,22 @@ from aiogram.enums import ChatAction
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message
 
+from bot.chat_service import ChatService
 from bot.config import load_settings
-from bot.llm import LLMService
-from bot.memory import DialogMemory
 
 
 logger = logging.getLogger(__name__)
 router = Router()
 
 settings = load_settings()
-memory = DialogMemory(max_dialog_messages=settings.max_dialog_messages)
-llm_service = LLMService(settings)
+chat_service = ChatService(settings)
 
 
 @router.message(CommandStart())
 async def start_handler(message: Message) -> None:
     """Создает историю пользователя и отправляет приветствие."""
     if message.from_user:
-        memory.get_history(message.from_user.id)
+        chat_service.get_history(message.from_user.id)
 
     await message.answer(
         "Привет! Я уже умею помнить короткий контекст и вызывать инструмент погоды. "
@@ -42,7 +40,7 @@ async def reset_handler(message: Message) -> None:
     if not message.from_user:
         return
 
-    memory.reset_history(message.from_user.id)
+    chat_service.reset_history(message.from_user.id)
     await message.answer("Готово, я очистил память этого диалога.")
 
 
@@ -52,20 +50,14 @@ async def text_handler(message: Message, bot: Bot) -> None:
     if not message.from_user or not message.text:
         return
 
-    history = memory.get_history(message.from_user.id)
-    history.append({"role": "user", "content": message.text})
-    memory.trim_history(history)
-
     await bot.send_chat_action(chat_id=message.chat.id, action=ChatAction.TYPING)
 
     try:
-        answer = await llm_service.generate_reply(history)
+        answer = await chat_service.handle_text(message.from_user.id, message.text)
     except Exception:
         logger.exception("Failed to generate LLM answer")
         await message.answer("Не получилось получить ответ от модели. Попробуй еще раз чуть позже.")
         return
-    finally:
-        memory.trim_history(history)
 
     await _send_long_message(message, answer)
 

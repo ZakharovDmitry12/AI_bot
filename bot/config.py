@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 class Settings:
     """Собранные настройки приложения."""
 
-    bot_token: str
+    bot_token: str | None
     llm_api_key: str
     llm_base_url: str
     llm_model: str
@@ -49,12 +49,12 @@ def _get_int_env(name: str, default: int) -> int:
         raise RuntimeError(f"{name} must be an integer.") from exc
 
 
-def load_settings() -> Settings:
+def load_settings(require_bot_token: bool = True) -> Settings:
     """Загружает .env и возвращает типизированный объект настроек."""
     load_dotenv()
 
     return Settings(
-        bot_token=_get_required_env("BOT_TOKEN"),
+        bot_token=_get_required_env("BOT_TOKEN") if require_bot_token else os.getenv("BOT_TOKEN"),
         llm_api_key=_get_required_env("OPENROUTER_API_KEY", "OPENAI_API_KEY", "API_KEY"),
         llm_base_url=os.getenv("OPENROUTER_BASE_URL")
         or os.getenv("OPENAI_BASE_URL")

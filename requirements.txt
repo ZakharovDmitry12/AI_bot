@@ -2,3 +2,6 @@ aiogram>=3,<4
 openai>=2,<3
 python-dotenv>=1,<2
 aiohttp>=3.9,<4
+numpy>=1.26,<3
+sounddevice>=0.4,<1
+soundfile>=0.12,<1

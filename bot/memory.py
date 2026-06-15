@@ -16,16 +16,16 @@ class DialogMemory:
 
     def __init__(self, max_dialog_messages: int) -> None:
         self._max_dialog_messages = max_dialog_messages
-        self._histories: dict[int, list[dict]] = {}
+        self._histories: dict[str | int, list[dict]] = {}
 
-    def get_history(self, user_id: int) -> list[dict]:
+    def get_history(self, user_id: str | int) -> list[dict]:
         """Возвращает историю пользователя, создавая ее при первом обращении."""
         if user_id not in self._histories:
             self._histories[user_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
 
         return self._histories[user_id]
 
-    def reset_history(self, user_id: int) -> None:
+    def reset_history(self, user_id: str | int) -> None:
         """Сбрасывает диалог пользователя до одного системного промпта."""
         self._histories[user_id] = [{"role": "system", "content": SYSTEM_PROMPT}]
 

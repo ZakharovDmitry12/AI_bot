@@ -53,6 +53,53 @@ OPENROUTER_MODEL=deepseek/deepseek-chat-v3.1
 
 Модель должна запросить tool `get_weather`, код получит данные из Open-Meteo, а затем LLM сформулирует финальный ответ.
 
+## Голосовой ассистент
+
+Голосовой клиент работает отдельно от Telegram: записывает звук с микрофона,
+отправляет WAV в OpenRouter Speech-to-Text, передает текст в тот же LLM-сервис
+и озвучивает ответ через Piper.
+
+Сначала проверь устройства:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.devices
+```
+
+Потом проверь запись:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.record_test --seconds 3
+```
+
+Проверь распознавание через OpenRouter:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.stt_test --record 5
+```
+
+Проверь озвучку через Piper:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.tts "Привет, я работаю"
+```
+
+Полный голосовой цикл:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.voice_client
+```
+
+Для голосового режима в `.env` нужны рабочий OpenRouter-ключ и пути к Piper:
+
+```env
+OPENROUTER_API_KEY=...
+VOICE_INPUT_DEVICE=SoundJoy2
+VOICE_OUTPUT_DEVICE=SoundJoy2
+PIPER_EXE=C:\path\to\piper.exe
+PIPER_MODEL=C:\path\to\ru_RU-irina-medium.onnx
+PIPER_CONFIG=C:\path\to\ru_RU-irina-medium.onnx.json
+```
+
 ## Как работает function calling
 
 1. Пользователь пишет сообщение.
