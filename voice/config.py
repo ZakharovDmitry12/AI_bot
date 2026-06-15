@@ -25,6 +25,7 @@ class VoiceSettings:
     wake_word: str
     wake_word_aliases: list[str]
     wake_model_path: Path
+    wake_gain: float
     silence_seconds: float
     max_record_seconds: float
     pre_roll_seconds: float
@@ -56,7 +57,16 @@ def load_voice_settings() -> VoiceSettings:
         wake_word=os.getenv("VOICE_WAKE_WORD", "джарвис").strip().lower(),
         wake_word_aliases=_get_csv_env(
             "VOICE_WAKE_WORD_ALIASES",
-            default=["джарвис", "джарвиз", "джервис", "джар виз"],
+            default=[
+                "джарвис",
+                "джарвиз",
+                "джервис",
+                "джар вис",
+                "джар виз",
+                "жарвис",
+                "жарвиз",
+                "ярвис",
+            ],
         ),
         wake_model_path=Path(
             os.getenv(
@@ -64,6 +74,7 @@ def load_voice_settings() -> VoiceSettings:
                 r".venv\vosk\vosk-model-small-ru-0.22",
             )
         ),
+        wake_gain=_get_float_env("VOICE_WAKE_GAIN", 12.0),
         silence_seconds=_get_float_env("VOICE_SILENCE_SECONDS", 2.0),
         max_record_seconds=_get_float_env("VOICE_MAX_RECORD_SECONDS", 20.0),
         pre_roll_seconds=_get_float_env("VOICE_PRE_ROLL_SECONDS", 0.3),

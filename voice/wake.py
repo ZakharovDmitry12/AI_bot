@@ -34,6 +34,7 @@ class WakeDebugEvent:
     text: str
     rms: float
     peak: float
+    amplified_peak: float
     matched_alias: str | None
 
 
@@ -88,7 +89,9 @@ class WakeWordDetector:
             sd.wait()
             block_rms = _rms_float32(block)
             block_peak = _peak_float32(block)
-            pcm16 = _float32_to_pcm16(block)
+            amplified_block = _amplify_float32(block, self._settings.wake_gain)
+            amplified_peak = _peak_float32(amplified_block)
+            pcm16 = _float32_to_pcm16(amplified_block)
 
             if recognizer.AcceptWaveform(pcm16.tobytes()):
                 is_final = True
@@ -107,6 +110,7 @@ class WakeWordDetector:
                         text=result,
                         rms=block_rms,
                         peak=block_peak,
+                        amplified_peak=amplified_peak,
                         matched_alias=match,
                     )
                 )
@@ -166,6 +170,11 @@ def _peak_float32(block: np.ndarray) -> float:
         return 0.0
 
     return float(np.max(np.abs(audio)))
+
+
+def _amplify_float32(block: np.ndarray, gain: float) -> np.ndarray:
+    audio = np.asarray(block, dtype=np.float32)
+    return np.clip(audio * gain, -1.0, 1.0)
 
 
 def _float32_to_pcm16(block: np.ndarray) -> np.ndarray:
