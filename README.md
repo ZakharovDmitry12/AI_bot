@@ -55,9 +55,9 @@ OPENROUTER_MODEL=openai/gpt-4o-mini
 
 ## Голосовой ассистент
 
-Голосовой клиент работает отдельно от Telegram: локально слушает кодовое слово
-через Vosk, записывает вопрос до тишины, отправляет WAV в OpenRouter
-Speech-to-Text, передает текст в тот же LLM-сервис и озвучивает ответ через
+Голосовой клиент работает отдельно от Telegram: записывает короткие фрагменты
+речи, проверяет кодовое слово через OpenRouter Speech-to-Text, затем записывает
+вопрос до тишины, передает текст в тот же LLM-сервис и озвучивает ответ через
 Piper.
 
 Сначала проверь устройства:
@@ -72,26 +72,15 @@ Piper.
 .\.venv\Scripts\python.exe -m voice.record_test --seconds 3
 ```
 
-Скачай модель для кодового слова:
-
-```powershell
-.\.venv\Scripts\python.exe -m voice.wake_setup
-```
-
-Проверь кодовое слово:
-
-```powershell
-.\.venv\Scripts\python.exe -m voice.wake_test
-```
-
-Если кодовое слово не срабатывает, включи диагностику:
+Диагностика старого локального Vosk wake-detector оставлена отдельно:
 
 ```powershell
 .\.venv\Scripts\python.exe -m voice.wake_test --debug
 ```
 
-В логах смотри на `rms/peak` и `text`: если `rms` около нуля, микрофон не дает
-сигнал; если `text` похож на другое слово, добавь его в `VOICE_WAKE_WORD_ALIASES`.
+Основной `voice.voice_client` проверяет кодовое слово через OpenRouter STT.
+Если он печатает `Wake check: text='...'`, но `match=-`, добавь распознанный
+вариант в `VOICE_WAKE_WORD_ALIASES`.
 
 Проверь автоостановку по тишине:
 
@@ -127,7 +116,7 @@ OPENROUTER_API_KEY=...
 VOICE_INPUT_DEVICE=SoundJoy2
 VOICE_OUTPUT_DEVICE=SoundJoy2
 VOICE_WAKE_WORD=джарвис
-VOICE_WAKE_MODEL_PATH=.venv\vosk\vosk-model-small-ru-0.22
+VOICE_WAKE_WORD_ALIASES=джарвис,джарвиз,джервис,джар вис,джар виз,жарвис,жарвиз,ярвис
 PIPER_EXE=C:\path\to\piper.exe
 PIPER_MODEL=C:\path\to\ru_RU-irina-medium.onnx
 PIPER_CONFIG=C:\path\to\ru_RU-irina-medium.onnx.json

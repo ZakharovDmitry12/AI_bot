@@ -65,79 +65,70 @@ def record_until_silence(
     pre_roll: deque[np.ndarray] = deque(maxlen=pre_roll_blocks)
     stop_event = stop_event or threading.Event()
 
-    with sd.InputStream(
-        samplerate=settings.sample_rate,
-        channels=1,
-        dtype="float32",
-        device=device_index,
-        blocksize=block_frames,
-    ) as stream:
-        noise_rms_values = []
-        calibration_audio_blocks = []
+    noise_rms_values = []
+    calibration_audio_blocks = []
 
-        for _ in range(calibration_blocks):
-            if stop_event.is_set():
-                break
+    for _ in range(calibration_blocks):
+        if stop_event.is_set():
+            break
 
-            block, _ = stream.read(block_frames)
-            block = np.asarray(block, dtype=np.float32).copy()
-            noise_rms_values.append(_rms(block))
-            calibration_audio_blocks.append(block)
+        block = _record_block(block_frames, settings.sample_rate, device_index)
+        noise_rms_values.append(_rms(block))
+        calibration_audio_blocks.append(block)
 
-        noise_floor = float(np.median(noise_rms_values)) if noise_rms_values else 0.0
-        silence_threshold = max(settings.min_speech_rms, noise_floor * settings.noise_multiplier)
-        speech_detected = False
-        silent_blocks = 0
+    noise_floor = float(np.median(noise_rms_values)) if noise_rms_values else 0.0
+    silence_threshold = max(settings.min_speech_rms, noise_floor * settings.noise_multiplier)
+    speech_detected = False
+    silent_blocks = 0
 
-        for block in calibration_audio_blocks:
-            block_rms = _rms(block)
-            is_speech = block_rms >= silence_threshold
+    for block in calibration_audio_blocks:
+        block_rms = _rms(block)
+        is_speech = block_rms >= silence_threshold
 
-            if not speech_detected:
-                pre_roll.append(block)
-
-                if is_speech:
-                    speech_detected = True
-                    recorded_blocks.extend(pre_roll)
-                    pre_roll.clear()
-
-                continue
-
-            recorded_blocks.append(block)
+        if not speech_detected:
+            pre_roll.append(block)
 
             if is_speech:
-                silent_blocks = 0
-            else:
-                silent_blocks += 1
+                speech_detected = True
+                recorded_blocks.extend(pre_roll)
+                pre_roll.clear()
 
-        for _ in range(max_blocks):
-            if stop_event.is_set():
-                break
+            continue
 
-            block, _ = stream.read(block_frames)
-            block = np.asarray(block, dtype=np.float32).copy()
-            block_rms = _rms(block)
-            is_speech = block_rms >= silence_threshold
+        recorded_blocks.append(block)
 
-            if not speech_detected:
-                pre_roll.append(block)
+        if is_speech:
+            silent_blocks = 0
+        else:
+            silent_blocks += 1
 
-                if is_speech:
-                    speech_detected = True
-                    recorded_blocks.extend(pre_roll)
-                    pre_roll.clear()
+    for _ in range(max_blocks):
+        if stop_event.is_set():
+            break
 
-                continue
+        block = _record_block(block_frames, settings.sample_rate, device_index)
+        block_rms = _rms(block)
+        is_speech = block_rms >= silence_threshold
 
-            recorded_blocks.append(block)
+        if not speech_detected:
+            pre_roll.append(block)
 
             if is_speech:
-                silent_blocks = 0
-            else:
-                silent_blocks += 1
+                speech_detected = True
+                recorded_blocks.extend(pre_roll)
+                pre_roll.clear()
 
-            if silent_blocks >= silence_limit_blocks:
-                break
+            continue
+
+        recorded_blocks.append(block)
+
+        if is_speech:
+            silent_blocks = 0
+        else:
+            silent_blocks += 1
+
+        if silent_blocks >= silence_limit_blocks:
+            break
 
     if not recorded_blocks:
         recorded_blocks = list(pre_roll)
@@ -164,3 +155,15 @@ def _rms(block: np.ndarray) -> float:
         return 0.0
 
     return float(np.sqrt(np.mean(np.square(audio))))
+
+
+def _record_block(frames: int, sample_rate: int, device_index: int | None) -> np.ndarray:
+    block = sd.rec(
+        frames,
+        samplerate=sample_rate,
+        channels=1,
+        dtype="float32",
+        device=device_index,
+    )
+    sd.wait()
+    return np.asarray(block, dtype=np.float32).copy()

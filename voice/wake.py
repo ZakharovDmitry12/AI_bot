@@ -100,7 +100,7 @@ class WakeWordDetector:
                 is_final = False
                 result = _parse_result(recognizer.PartialResult(), key="partial")
 
-            match = _match_wake_word(result, self._aliases)
+                match = match_wake_word(result, self._aliases)
 
             if debug_callback:
                 debug_callback(
@@ -131,7 +131,7 @@ def _parse_result(raw_json: str, key: str) -> str:
     return value.strip().lower() if isinstance(value, str) else ""
 
 
-def _match_wake_word(text: str, aliases: list[str]) -> str | None:
+def match_wake_word(text: str, aliases: list[str]) -> str | None:
     normalized_text = _normalize_text(text)
     compact_text = normalized_text.replace(" ", "")
 

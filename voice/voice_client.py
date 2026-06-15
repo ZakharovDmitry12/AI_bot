@@ -11,13 +11,14 @@ import threading
 from bot.chat_service import ChatService
 from bot.config import load_settings
 from voice.audio_devices import require_input_device, require_output_device
+from voice.cloud_wake import CloudWakeAttempt
+from voice.cloud_wake import CloudWakeWordDetector
 from voice.config import VoiceSettings
 from voice.config import load_voice_settings
 from voice.player import play_wav
 from voice.recorder import record_until_silence
 from voice.stt import OpenRouterSTT
 from voice.tts import PiperTTS
-from voice.wake import WakeWordDetector
 
 
 logger = logging.getLogger(__name__)
@@ -38,7 +39,7 @@ async def main() -> None:
     chat_service = ChatService(app_settings)
     stt = OpenRouterSTT(app_settings, voice_settings)
     tts = PiperTTS(voice_settings)
-    wake_detector = WakeWordDetector(voice_settings)
+    wake_detector = CloudWakeWordDetector(voice_settings, stt)
     stop_event = _start_exit_monitor()
 
     print("Voice assistant is ready.")
@@ -46,7 +47,7 @@ async def main() -> None:
 
     while not stop_event.is_set():
         print("Waiting for wake word...")
-        wake_result = wake_detector.wait(stop_event=stop_event)
+        wake_result = await wake_detector.wait(stop_event=stop_event, attempt_callback=_print_wake_attempt)
 
         if stop_event.is_set():
             return
@@ -120,6 +121,16 @@ def _start_exit_monitor() -> threading.Event:
     thread = threading.Thread(target=_monitor, name="voice-exit-monitor", daemon=True)
     thread.start()
     return stop_event
+
+
+def _print_wake_attempt(attempt: CloudWakeAttempt) -> None:
+    if not attempt.speech_detected:
+        print(f"Wake check: no speech ({attempt.duration_seconds:.1f}s).")
+        return
+
+    match = attempt.matched_alias or "-"
+    text = attempt.text or "<empty>"
+    print(f"Wake check: text={text!r}, match={match}")
 
 
 if __name__ == "__main__":
