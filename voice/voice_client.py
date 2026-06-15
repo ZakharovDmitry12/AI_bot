@@ -6,15 +6,18 @@ import asyncio
 import logging
 from pathlib import Path
 import tempfile
+import threading
 
 from bot.chat_service import ChatService
 from bot.config import load_settings
 from voice.audio_devices import require_input_device, require_output_device
+from voice.config import VoiceSettings
 from voice.config import load_voice_settings
 from voice.player import play_wav
-from voice.recorder import record_wav
+from voice.recorder import record_until_silence
 from voice.stt import OpenRouterSTT
 from voice.tts import PiperTTS
+from voice.wake import WakeWordDetector
 
 
 logger = logging.getLogger(__name__)
@@ -35,27 +38,55 @@ async def main() -> None:
     chat_service = ChatService(app_settings)
     stt = OpenRouterSTT(app_settings, voice_settings)
     tts = PiperTTS(voice_settings)
+    wake_detector = WakeWordDetector(voice_settings)
+    stop_event = _start_exit_monitor()
 
     print("Voice assistant is ready.")
-    print("Press Enter to record, or type q and press Enter to quit.")
+    print("Say the configured wake word to start. Type q and press Enter to quit.")
 
-    while True:
-        command = input("> ").strip().lower()
+    while not stop_event.is_set():
+        print("Waiting for wake word...")
+        wake_result = wake_detector.wait(stop_event=stop_event)
 
-        if command in {"q", "quit", "exit"}:
+        if stop_event.is_set():
             return
 
-        await _run_turn(chat_service, stt, tts, voice_settings)
+        if wake_result is None:
+            continue
+
+        print("Wake word detected.")
+        await _run_turn(chat_service, stt, tts, voice_settings, stop_event)
 
 
-async def _run_turn(chat_service: ChatService, stt: OpenRouterSTT, tts: PiperTTS, voice_settings) -> None:
+async def _run_turn(
+    chat_service: ChatService,
+    stt: OpenRouterSTT,
+    tts: PiperTTS,
+    voice_settings: VoiceSettings,
+    stop_event: threading.Event,
+) -> None:
     with tempfile.TemporaryDirectory() as tmp_dir:
         tmp_path = Path(tmp_dir)
         input_wav = tmp_path / "input.wav"
         output_wav = tmp_path / "answer.wav"
 
-        print(f"Recording {voice_settings.record_seconds:g} seconds...")
-        record_wav(input_wav, voice_settings)
+        print("Listening...")
+        recording = record_until_silence(input_wav, voice_settings, stop_event=stop_event)
+
+        if stop_event.is_set():
+            return
+
+        print(
+            "Recording stopped "
+            f"(duration={recording.duration_seconds:.1f}s, speech={recording.speech_detected})."
+        )
+
+        if not recording.speech_detected:
+            answer = "Не расслышал."
+            print(f"Assistant: {answer}")
+            tts.synthesize_to_file(answer, output_wav)
+            play_wav(output_wav, voice_settings)
+            return
 
         print("Transcribing...")
         text = await stt.transcribe(input_wav)
@@ -70,6 +101,25 @@ async def _run_turn(chat_service: ChatService, stt: OpenRouterSTT, tts: PiperTTS
         print(f"Assistant: {answer}")
         tts.synthesize_to_file(answer, output_wav)
         play_wav(output_wav, voice_settings)
+
+
+def _start_exit_monitor() -> threading.Event:
+    stop_event = threading.Event()
+
+    def _monitor() -> None:
+        while not stop_event.is_set():
+            try:
+                command = input().strip().lower()
+            except EOFError:
+                return
+
+            if command in {"q", "quit", "exit"}:
+                stop_event.set()
+                return
+
+    thread = threading.Thread(target=_monitor, name="voice-exit-monitor", daemon=True)
+    thread.start()
+    return stop_event
 
 
 if __name__ == "__main__":

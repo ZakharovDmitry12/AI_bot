@@ -34,7 +34,7 @@
 ```env
 BOT_TOKEN=...
 OPENROUTER_API_KEY=...
-OPENROUTER_MODEL=deepseek/deepseek-chat-v3.1
+OPENROUTER_MODEL=openai/gpt-4o-mini
 ```
 
 Если используешь старое имя `API_KEY`, код тоже его подхватит, но для понятности лучше перейти на `OPENROUTER_API_KEY`.
@@ -55,9 +55,10 @@ OPENROUTER_MODEL=deepseek/deepseek-chat-v3.1
 
 ## Голосовой ассистент
 
-Голосовой клиент работает отдельно от Telegram: записывает звук с микрофона,
-отправляет WAV в OpenRouter Speech-to-Text, передает текст в тот же LLM-сервис
-и озвучивает ответ через Piper.
+Голосовой клиент работает отдельно от Telegram: локально слушает кодовое слово
+через Vosk, записывает вопрос до тишины, отправляет WAV в OpenRouter
+Speech-to-Text, передает текст в тот же LLM-сервис и озвучивает ответ через
+Piper.
 
 Сначала проверь устройства:
 
@@ -69,6 +70,24 @@ OPENROUTER_MODEL=deepseek/deepseek-chat-v3.1
 
 ```powershell
 .\.venv\Scripts\python.exe -m voice.record_test --seconds 3
+```
+
+Скачай модель для кодового слова:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.wake_setup
+```
+
+Проверь кодовое слово:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.wake_test
+```
+
+Проверь автоостановку по тишине:
+
+```powershell
+.\.venv\Scripts\python.exe -m voice.vad_test
 ```
 
 Проверь распознавание через OpenRouter:
@@ -89,12 +108,17 @@ OPENROUTER_MODEL=deepseek/deepseek-chat-v3.1
 .\.venv\Scripts\python.exe -m voice.voice_client
 ```
 
+После запуска скажи `Джарвис`, дождись `Listening...`, задай вопрос и замолчи.
+Запись остановится после 2 секунд тишины или через 20 секунд максимум.
+
 Для голосового режима в `.env` нужны рабочий OpenRouter-ключ и пути к Piper:
 
 ```env
 OPENROUTER_API_KEY=...
 VOICE_INPUT_DEVICE=SoundJoy2
 VOICE_OUTPUT_DEVICE=SoundJoy2
+VOICE_WAKE_WORD=джарвис
+VOICE_WAKE_MODEL_PATH=.venv\vosk\vosk-model-small-ru-0.22
 PIPER_EXE=C:\path\to\piper.exe
 PIPER_MODEL=C:\path\to\ru_RU-irina-medium.onnx
 PIPER_CONFIG=C:\path\to\ru_RU-irina-medium.onnx.json

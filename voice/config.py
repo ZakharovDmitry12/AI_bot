@@ -2,6 +2,7 @@
 
 from dataclasses import dataclass
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -21,6 +22,16 @@ class VoiceSettings:
     piper_exe: str | None
     piper_model: str | None
     piper_config: str | None
+    wake_word: str
+    wake_word_aliases: list[str]
+    wake_model_path: Path
+    silence_seconds: float
+    max_record_seconds: float
+    pre_roll_seconds: float
+    min_speech_rms: float
+    noise_multiplier: float
+    vad_block_seconds: float
+    noise_calibration_seconds: float
 
 
 def load_voice_settings() -> VoiceSettings:
@@ -42,6 +53,24 @@ def load_voice_settings() -> VoiceSettings:
         piper_exe=_get_optional_env("PIPER_EXE", default="piper"),
         piper_model=_get_optional_env("PIPER_MODEL"),
         piper_config=_get_optional_env("PIPER_CONFIG"),
+        wake_word=os.getenv("VOICE_WAKE_WORD", "джарвис").strip().lower(),
+        wake_word_aliases=_get_csv_env(
+            "VOICE_WAKE_WORD_ALIASES",
+            default=["джарвис", "джервис", "джар виз"],
+        ),
+        wake_model_path=Path(
+            os.getenv(
+                "VOICE_WAKE_MODEL_PATH",
+                r".venv\vosk\vosk-model-small-ru-0.22",
+            )
+        ),
+        silence_seconds=_get_float_env("VOICE_SILENCE_SECONDS", 2.0),
+        max_record_seconds=_get_float_env("VOICE_MAX_RECORD_SECONDS", 20.0),
+        pre_roll_seconds=_get_float_env("VOICE_PRE_ROLL_SECONDS", 0.3),
+        min_speech_rms=_get_float_env("VOICE_MIN_SPEECH_RMS", 0.003),
+        noise_multiplier=_get_float_env("VOICE_NOISE_MULTIPLIER", 3.0),
+        vad_block_seconds=_get_float_env("VOICE_VAD_BLOCK_SECONDS", 0.1),
+        noise_calibration_seconds=_get_float_env("VOICE_NOISE_CALIBRATION_SECONDS", 0.4),
     )
 
 
@@ -87,3 +116,13 @@ def _get_float_env(name: str, default: float) -> float:
         raise RuntimeError(f"{name} must be greater than zero.")
 
     return value
+
+
+def _get_csv_env(name: str, default: list[str]) -> list[str]:
+    raw_value = os.getenv(name)
+
+    if not raw_value:
+        return default
+
+    values = [value.strip().lower() for value in raw_value.split(",") if value.strip()]
+    return values or default
